@@ -1,192 +1,59 @@
-# ============================================================================
-# Pre-commit Configuration for Terraform Infrastructure-as-Code Projects
-# ============================================================================
-# This configuration enforces code quality, security, and naming conventions
-# for Terraform repositories. All checks run locally before commits/pushes.
-# ============================================================================
+# This configuration keeps the repo clean and consistent before commit/push.
+# It is intentionally local-first and should complement CI checks.
 
 default_install_hook_types: [pre-commit, commit-msg, pre-push]
 default_stages: [pre-commit]
 minimum_pre_commit_version: "4.0.0"
 
 repos:
-  # ========================================================================
-  # SECTION 1: Generic Git & File Hygiene Checks
-  # ========================================================================
-  # These hooks prevent common Git mistakes and ensure file format consistency
-  # across all file types in your repository.
-  # ========================================================================
-
+  # Generic file and Git hygiene.
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-      # Remove trailing whitespace at end of lines
-      # Keeps files clean and avoids unnecessary diffs
       - id: trailing-whitespace
-
-      # Ensure files end with a newline character
-      # POSIX standard and prevents Git warnings
       - id: end-of-file-fixer
-
-      # Normalize line endings to LF (Unix style)
-      # Essential for cross-platform compatibility in teams
       - id: mixed-line-ending
         args: [--fix=lf]
-
-      # Validate YAML syntax in all .yaml/.yml files
-      # Catches indentation and formatting errors early
       - id: check-yaml
-
-      # Detect Git merge conflict markers
-      # Prevents accidentally committing unresolved merge conflicts
       - id: check-merge-conflict
-
-      # Warn about large files being added (default: 500KB)
-      # Helps prevent accidentally committing binary files or secrets
       - id: check-added-large-files
-
-      # Detect private keys, API tokens, and AWS credentials
-      # Critical security check to prevent credential leaks
       - id: detect-private-key
-
-      # Prevent direct commits to protected branches
-      # Enforces proper Git workflow (use PRs/MRs for main)
       - id: no-commit-to-branch
         args: [--branch, main]
 
-  # ========================================================================
-  # SECTION 2: Secret Detection
-  # ========================================================================
-  # Gitleaks scans for credentials, API keys, and sensitive patterns
-  # using entropy analysis and regex rules.
-  # ========================================================================
-
+  # Secret scanning for accidental credentials or tokens.
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
     hooks:
-      # Run gitleaks to detect hardcoded secrets in code
-      # Prevents accidental exposure of credentials in version control
       - id: gitleaks
 
-  # ========================================================================
-  # SECTION 3: Terraform Linting, Validation & Security
-  # ========================================================================
-  # Dedicated Terraform hooks for formatting, validation, linting,
-  # and infrastructure security scanning.
-  # Repository: https://github.com/antonbabenko/pre-commit-terraform
-  # ========================================================================
-
+  # Terraform-specific validation, linting, and compliance.
   - repo: https://github.com/antonbabenko/pre-commit-terraform
     rev: v1.109.1
     hooks:
-      # ====================================================================
-      # ID: terraform_fmt
-      # PURPOSE: Auto-format Terraform code to canonical style
-      # ====================================================================
-      # - Normalizes indentation to 2 spaces
-      # - Aligns arguments for readability
-      # - Runs: terraform fmt -recursive
-      # - EFFECT: Automatically modifies and fixes formatting issues
-      # - CONFIG: Uses Terraform 1.16.4 for consistency with CI/CD pipelines
-      # ====================================================================
       - id: terraform_fmt
         args:
           - --hook-config=--tool-version=1.16.4
-
-      # ====================================================================
-      # ID: terraform_validate
-      # PURPOSE: Syntax validation of Terraform configuration files
-      # ====================================================================
-      # - Checks HCL2 syntax without backend initialization
-      # - Validates resource references and variable definitions
-      # - Runs: terraform validate
-      # - EFFECT: Fails if syntax errors found (blocks commit)
-      # - CONFIG:
-      #   * tool-version: Terraform 1.16.4 (matches team standard)
-      #   * retry-once-with-cleanup: Retry on failure after cleanup
-      #   * tf-init-args=-backend=false: Skip backend init (faster, local only)
-      # ====================================================================
       - id: terraform_validate
         args:
           - --hook-config=--tool-version=1.16.4
           - --hook-config=--retry-once-with-cleanup=true
           - --tf-init-args=-backend=false
-
-      # ====================================================================
-      # ID: terraform_providers_lock
-      # PURPOSE: Ensure .terraform.lock.hcl is valid and cross-platform
-      # ====================================================================
-      # - Validates that provider lock file includes all required platforms
-      # - Prevents "missing platform" errors during Terraform apply
-      # - Runs: terraform providers lock
-      # - EFFECT: Updates lock file if needed or fails if lock file invalid
-      # - CONFIG:
-      #   * mode=check-lockfile-is-cross-platform: Verify all platforms
-      #   * platform=linux_amd64: Primary deployment platform (CI/CD)
-      # - NOTE: Critical for reproducible deployments across team
-      # ====================================================================
       - id: terraform_providers_lock
         args:
           - --hook-config=--mode=check-lockfile-is-cross-platform
           - --args=-platform=linux_amd64
-
-      # ====================================================================
-      # ID: terraform_tflint
-      # PURPOSE: Advanced Terraform linting and best-practice checks
-      # ====================================================================
-      # - Enforces naming conventions (e.g., resource names in snake_case)
-      # - Checks for deprecated syntax and unused variables
-      # - Detects hardcoded values that should be variables
-      # - Runs: tflint
-      # - EFFECT: Warns/fails on code quality violations (configurable)
-      # - CONFIG:
-      #   * tool-version: tflint 0.64.0 (matches CI/CD version)
-      #   * args: Use .tflint.hcl config file for custom rules
-      # - NOTE: Config file path uses __GIT_WORKING_DIR__ placeholder
-      # ====================================================================
       - id: terraform_tflint
         args:
           - --hook-config=--tool-version=0.64.0
           - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
-
-      # ====================================================================
-      # ID: terraform_checkov
-      # PURPOSE: Infrastructure security and compliance scanning
-      # ====================================================================
-      # - Scans for IaC misconfigurations (e.g., unencrypted storage, public DBs)
-      # - Checks CIS compliance, AWS best practices, Azure policies
-      # - Detects CVEs in Terraform provider versions
-      # - Runs: checkov
-      # - EFFECT: Warns/fails on security violations per framework configuration
-      # - CONFIG:
-      #   * args: Use .checkov.yaml for framework selection and policy control
-      # - FRAMEWORKS: terraform, azurerm, kubernetes, etc.
-      # - NOTE: Can slow down commit on large codebases; offload to CI if needed
-      # ====================================================================
       - id: terraform_checkov
         args:
           - --args=--config-file=__GIT_WORKING_DIR__/.checkov.yaml
 
-  # ========================================================================
-  # SECTION 4: Local Custom Hooks
-  # ========================================================================
-  # Team-specific enforcement: commit message format and branch naming
-  # ========================================================================
-
+  # Team conventions for clean commit history and predictable branch names.
   - repo: local
     hooks:
-      # ====================================================================
-      # ID: conventional-commit
-      # PURPOSE: Enforce Conventional Commits message format
-      # ====================================================================
-      # - Ensures commit messages follow semantic versioning convention
-      # - Format: <type>(<scope>)?: <subject>
-      # - TYPES: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
-      # - SCOPE: Optional, e.g., fix(auth): improve token validation
-      # - EFFECT: Rejects commits with invalid message format
-      # - BENEFIT: Auto-generate changelogs, enables semantic versioning
-      # - STAGE: commit-msg (runs on commit message, not file changes)
-      # ====================================================================
       - id: conventional-commit
         name: Commit message follows Conventional Commits
         language: pygrep
@@ -194,24 +61,8 @@ repos:
         args: [--multiline, --negate]
         stages: [commit-msg]
 
-      # ====================================================================
-      # ID: branch-name
-      # PURPOSE: Enforce branch naming convention for team organization
-      # ====================================================================
-      # - Validates branch name format: feature|bugfix|hotfix/<description>
-      # - Description must be lowercase alphanumeric with hyphens only
-      # - EXAMPLES:
-      #   * feature/add-user-authentication (✓ VALID)
-      #   * bugfix/fix-null-pointer-exception (✓ VALID)
-      #   * hotfix/patch-security-vulnerability (✓ VALID)
-      #   * AddNewFeature (✗ INVALID - no prefix)
-      #   * feature/AddFeature (✗ INVALID - uppercase in description)
-      # - EFFECT: Blocks push if branch name doesn't match pattern
-      # - BENEFIT: Git history remains organized and searchable
-      # - STAGE: pre-push (runs before git push)
-      # ====================================================================
       - id: branch-name
-        name: Branch name follows feature|bugfix|hotfix/<description> convention
+        name: Branch name is feature|bugfix|hotfix/<description>
         language: system
         entry: >-
           bash -c '[[ "$(git rev-parse --abbrev-ref HEAD)" =~ ^(feature|bugfix|hotfix)/[a-z0-9]+(-[a-z0-9]+)*$ ]]
@@ -219,23 +70,3 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
-
-# ============================================================================
-# QUICK START
-# ============================================================================
-# 1. Install pre-commit framework:
-#    $ pip install pre-commit
-#
-# 2. Install hooks into your repo:
-#    $ pre-commit install --install-hooks
-#
-# 3. Run hooks manually on all files:
-#    $ pre-commit run --all-files
-#
-# 4. Run hooks on staged files only:
-#    $ pre-commit run
-#
-# 5. Bypass hooks (emergency only):
-#    $ git commit --no-verify
-# ============================================================================
-
