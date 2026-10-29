@@ -1,0 +1,12 @@
+# Shared by pre-commit and CI.
+# Every skip-check entry needs a check ID, a reason and a review reference (PR, ticket, ADR).
+framework:
+  - terraform
+compact: true
+quiet: true
+download-external-modules: false
+# skip-path:
+#   - bootstrap
+# skip-check:
+#   # CKV_AZURE_XXX - <why this check does not apply> (<PR or ticket reference>).
+#   - CKV_AZURE_XXX

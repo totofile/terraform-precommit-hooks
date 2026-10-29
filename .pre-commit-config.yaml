@@ -1,5 +1,6 @@
 # This configuration keeps the repo clean and consistent before commit/push.
 # It is intentionally local-first and should complement CI checks.
+# Tool versions below are examples: align them with the versions used by your own CI pipeline.
 
 default_install_hook_types: [pre-commit, commit-msg, pre-push]
 default_stages: [pre-commit]
@@ -41,8 +42,13 @@ repos:
           - --tf-init-args=-backend=false
       - id: terraform_providers_lock
         args:
+          # Only compares the number of h1: checksums with the platforms listed below.
+          # Generate the lockfile with the same list: terraform providers lock -platform=...
           - --hook-config=--mode=check-lockfile-is-cross-platform
           - --args=-platform=linux_amd64
+          - --args=-platform=darwin_amd64
+          - --args=-platform=darwin_arm64
+          - --args=-platform=windows_amd64
       - id: terraform_tflint
         args:
           - --hook-config=--tool-version=0.64.0
